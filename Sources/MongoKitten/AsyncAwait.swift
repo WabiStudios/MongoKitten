@@ -4,8 +4,20 @@ import NIO
 import MongoClient
 import MongoKittenCore
 
+#if canImport(NIOTransportServices) && os(iOS)
+import NIOTransportServices
+#endif /* canImport(NIOTransportServices) && os(iOS) */
+
 @available(macOS 10.15, iOS 13, watchOS 8, tvOS 15, *)
 extension MongoCluster {
+    public static func _newEventLoopGroup() -> _MongoPlatformEventLoopGroup {
+        #if canImport(NIOTransportServices) && os(iOS)
+        return NIOTSEventLoopGroup(loopCount: 1)
+        #else
+        return MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        #endif
+    }
+
     public struct Async {
         public let nio: MongoCluster
         public var heartbeatFrequency: TimeAmount {
@@ -19,7 +31,7 @@ extension MongoCluster {
         
         public init(connectionString: String, awaitDiscovery: Bool) async throws {
             let settings = try ConnectionSettings(connectionString)
-            nio = try MongoCluster(lazyConnectingTo: settings, on: MultiThreadedEventLoopGroup(numberOfThreads: 1))
+            nio = try MongoCluster(lazyConnectingTo: settings, on: MongoCluster._newEventLoopGroup())
             
             try await nio.initialDiscovery.get()
         }
